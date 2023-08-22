@@ -1,0 +1,151 @@
+The core classes, functions, and methods necessary for the Tetris game are:
+
+1. `Tetromino` class: This class will represent a Tetromino piece. It will have methods to rotate the piece and to get the shape of the piece.
+
+2. `Board` class: This class will represent the game board. It will have methods to check if a move is valid, to place a piece on the board, to check for and clear full lines, and to check if the game is over.
+
+3. `Game` class: This class will control the game flow. It will have methods to start a new game, to handle user input, to update the game state, and to render the game.
+
+4. `main` function: This function will be the entry point of the program. It will create a new game and start it.
+
+Now, let's write the code for each file.
+
+`requirements.txt`
+```plaintext
+pygame==2.0.1
+numpy==1.21.2
+```
+
+`tetromino.py`
+```python
+import numpy as np
+
+class Tetromino:
+    SHAPES = [
+        np.array([[1, 1, 1, 1]]),  # I
+        np.array([[1, 1], [1, 1]]),  # O
+        np.array([[1, 1, 1], [0, 1, 0]]),  # T
+        np.array([[1, 1, 0], [0, 1, 1]]),  # Z
+        np.array([[0, 1, 1], [1, 1, 0]]),  # S
+        np.array([[1, 1, 1], [1, 0, 0]]),  # J
+        np.array([[1, 1, 1], [0, 0, 1]])  # L
+    ]
+
+    def __init__(self, shape_index, rotation=0):
+        self.shape_index = shape_index
+        self.rotation = rotation
+
+    @property
+    def shape(self):
+        return np.rot90(Tetromino.SHAPES[self.shape_index], self.rotation)
+
+    def rotate(self):
+        return Tetromino(self.shape_index, (self.rotation + 1) % 4)
+```
+
+`board.py`
+```python
+import numpy as np
+
+class Board:
+    WIDTH = 10
+    HEIGHT = 20
+
+    def __init__(self):
+        self.grid = np.zeros((Board.HEIGHT, Board.WIDTH), dtype=int)
+
+    def is_valid_move(self, tetromino, x, y):
+        for dx, dy in np.ndindex(tetromino.shape.shape):
+            if tetromino.shape[dx, dy] and (x + dx < 0 or x + dx >= Board.WIDTH or y + dy < 0 or y + dy >= Board.HEIGHT or self.grid[y + dy, x + dx]):
+                return False
+        return True
+
+    def place(self, tetromino, x, y):
+        for dx, dy in np.ndindex(tetromino.shape.shape):
+            if tetromino.shape[dx, dy]:
+                self.grid[y + dy, x + dx] = tetromino.shape_index + 1
+
+    def clear_lines(self):
+        full_lines = np.all(self.grid != 0, axis=1)
+        if np.any(full_lines):
+            self.grid = np.concatenate((np.zeros((np.sum(full_lines), Board.WIDTH), dtype=int), self.grid[~full_lines]))
+
+    def is_game_over(self):
+        return np.any(self.grid[0] != 0)
+```
+
+`game.py`
+```python
+import pygame
+import random
+from tetromino import Tetromino
+from board import Board
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((Board.WIDTH * 30, Board.HEIGHT * 30))
+        self.clock = pygame.time.Clock()
+        self.board = Board()
+        self.current_tetromino = Tetromino(random.randint(0, 6))
+        self.current_x = Board.WIDTH // 2
+        self.current_y = 0
+
+    def handle_input(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    if self.board.is_valid_move(self.current_tetromino.rotate(), self.current_x, self.current_y):
+                        self.current_tetromino = self.current_tetromino.rotate()
+                elif event.key == pygame.K_DOWN:
+                    if self.board.is_valid_move(self.current_tetromino, self.current_x, self.current_y + 1):
+                        self.current_y += 1
+                elif event.key == pygame.K_LEFT:
+                    if self.board.is_valid_move(self.current_tetromino, self.current_x - 1, self.current_y):
+                        self.current_x -= 1
+                elif event.key == pygame.K_RIGHT:
+                    if self.board.is_valid_move(self.current_tetromino, self.current_x + 1, self.current_y):
+                        self.current_x += 1
+        return True
+
+    def update(self):
+        if not self.board.is_valid_move(self.current_tetromino, self.current_x, self.current_y + 1):
+            self.board.place(self.current_tetromino, self.current_x, self.current_y)
+            self.board.clear_lines()
+            self.current_tetromino = Tetromino(random.randint(0, 6))
+            self.current_x = Board.WIDTH // 2
+            self.current_y = 0
+            if self.board.is_game_over():
+                self.board = Board()
+        else:
+            self.current_y += 1
+
+    def render(self):
+        self.screen.fill((0, 0, 0))
+        for x, y in np.ndindex((Board.WIDTH, Board.HEIGHT)):
+            pygame.draw.rect(self.screen, (255, 255, 255), pygame.Rect(x * 30, y * 30, 30, 30), 1)
+        for dx, dy in np.ndindex(self.current_tetromino.shape.shape):
+            if self.current_tetromino.shape[dx, dy]:
+                pygame.draw.rect(self.screen, (255, 255, 255), pygame.Rect((self.current_x + dx) * 30, (self.current_y + dy) * 30, 30, 30))
+        pygame.display.flip()
+
+    def run(self):
+        while self.handle_input():
+            self.update()
+            self.render()
+            self.clock.tick(60)
+```
+
+`main.py`
+```python
+from game import Game
+
+def main():
+    game = Game()
+    game.run()
+
+if __name__ == "__main__":
+    main()
+```
