@@ -31,6 +31,8 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            elif event.type == pygame.MOUSEBUTTONDOWN and self.game_over:
+                self.restart_game()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     if self.board.is_valid_move(self.current_tetromino.rotate(), self.current_x, self.current_y):
@@ -90,16 +92,7 @@ class Game:
                 pygame.draw.rect(self.screen, tetromino_color, pygame.Rect((self.current_x + dx) * 30, (self.current_y + dy) * 30, 30, 30))
 
         if self.game_over:
-            font_size = 55
-            font = pygame.font.SysFont(None, font_size)
-            game_over_text = font.render('GAME OVER', True, (255, 0, 0))
-            
-            # Calculate the position to center the text
-            text_width, text_height = game_over_text.get_size()
-            text_x = (Board.WIDTH * 30 - text_width) // 2
-            text_y = (Board.HEIGHT * 30 - text_height) // 2
-            
-            self.screen.blit(game_over_text, (text_x, text_y))
+            self.render_game_over()
         
                 
         pygame.display.flip()
@@ -130,19 +123,59 @@ class Game:
         self.current_x = Board.WIDTH // 2
         self.current_y = 0
 
+    def render_game_over(self):
+        # Fill the screen with a semi-transparent overlay
+        overlay = pygame.Surface((Board.WIDTH * 30, Board.HEIGHT * 30), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 128))
+        self.screen.blit(overlay, (0, 0))
+
+        # Display the game over text
+        font = pygame.font.SysFont(None, 55)
+        game_over_text = font.render('Game Over', True, (255, 0, 0))
+        text_x = (Board.WIDTH * 30 - game_over_text.get_width()) // 2
+        text_y = (Board.HEIGHT * 30 - game_over_text.get_height()) // 2
+        self.screen.blit(game_over_text, (text_x, text_y))
+
+        # Display the restart button
+        restart_text = font.render('Click to Restart', True, (255, 255, 255))
+        restart_x = (Board.WIDTH * 30 - restart_text.get_width()) // 2
+        restart_y = text_y + game_over_text.get_height() + 10
+        self.screen.blit(restart_text, (restart_x, restart_y))
+
+        pygame.display.flip()
+
+
+    def restart_game(self):
+        self.board = Board()
+        self.current_tetromino = Tetromino(random.randint(0, 6))
+        self.current_x = Board.WIDTH // 2
+        self.current_y = 0
+        self.drop_counter = 0
+        self.held_tetromino = None
+        self.can_hold = True
+        self.bag = list(range(7))
+        random.shuffle(self.bag)
+        self.bag_index = 0
+        self.level = 1
+        self.lines_cleared = 0
+        self.lines_to_next_level = 10
+        self.drop_speed = 1000 - (self.level - 1) * 50
+        self.game_over = False
 
     def run(self):
         while self.handle_input():
-            if self.game_over:
-                break
+            
             keys = pygame.key.get_pressed()
             if keys[pygame.K_DOWN]:
                 self.drop_counter += self.soft_drop_speed
             else:
                 self.drop_counter += self.clock.tick(60)
             
-            if self.drop_counter > self.drop_speed:
-                self.update()
-                self.drop_counter = 0
-            self.render()
+            if not self.game_over:
+                if self.drop_counter > self.drop_speed:
+                    self.update()
+                    self.drop_counter = 0
+                self.render()
+            else:
+                self.render_game_over()
 
